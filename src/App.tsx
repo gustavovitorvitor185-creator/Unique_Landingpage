@@ -10,11 +10,7 @@ import {
   MessageCircle,
   X,
 } from "lucide-react";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 const WHATSAPP_URL =
   "https://wa.me/5519995499000?text=" +
@@ -64,14 +60,10 @@ const trainings = [
 function App() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [rolouPagina, setRolouPagina] = useState(false);
-  const [secaoAtiva, setSecaoAtiva] = useState("inicio");
+  const [secaoAtiva, setSecaoAtiva] = useState("#inicio");
 
-  const cabecalhoRef = useRef<HTMLElement | null>(null);
-  const navegacaoEmAndamento = useRef(false);
-  const temporizadorNavegacao = useRef<number | null>(null);
+  const barraCabecalhoRef = useRef<HTMLDivElement | null>(null);
   const prefereMovimentoReduzido = useReducedMotion();
-
-  const scrollSuave = prefereMovimentoReduzido ? "auto" : "smooth";
 
   useEffect(() => {
     const atualizarCabecalho = () => {
@@ -89,134 +81,85 @@ function App() {
     };
   }, []);
 
+  // Mantém o destaque do menu sincronizado com a seção visível.
   useEffect(() => {
-    const secoes = navigation
-      .map((item) => document.querySelector(item.href))
-      .filter((secao): secao is Element => secao !== null);
+    const elementos = navigation
+      .map(({ href }) => document.getElementById(href.slice(1)))
+      .filter((elemento): elemento is HTMLElement => elemento !== null);
 
-    if (!secoes.length) return;
+    if (!elementos.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (navegacaoEmAndamento.current) return;
-
         const visiveis = entries
           .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => {
-            const distanciaA = Math.abs(
-              a.boundingClientRect.top -
-                (cabecalhoRef.current?.getBoundingClientRect().height ?? 112)
-            );
-
-            const distanciaB = Math.abs(
-              b.boundingClientRect.top -
-                (cabecalhoRef.current?.getBoundingClientRect().height ?? 112)
-            );
-
-            return distanciaA - distanciaB;
-          });
+          .sort(
+            (a, b) =>
+              a.boundingClientRect.top - b.boundingClientRect.top
+          );
 
         if (visiveis.length > 0) {
           setSecaoAtiva(`#${visiveis[0].target.id}`);
         }
       },
       {
-        root: null,
-        rootMargin: "-15% 0px -55% 0px",
-        threshold: [0, 0.1, 0.25, 0.5],
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: 0,
       }
     );
 
-    secoes.forEach((secao) => observer.observe(secao));
+    elementos.forEach((elemento) => observer.observe(elemento));
 
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (temporizadorNavegacao.current !== null) {
-        window.clearTimeout(temporizadorNavegacao.current);
-      }
-    };
-  }, []);
-
+  // Navegação corrigida para o menu mobile e desktop.
   const navegar = (href: string) => {
-    const secao = document.querySelector<HTMLElement>(href);
+    const id = href.startsWith("#") ? href.slice(1) : href;
+    const secao = document.getElementById(id);
 
-    if (!secao) return;
-
-    setMenuAberto(false);
-    navegacaoEmAndamento.current = true;
-    setSecaoAtiva(href);
-
-    if (temporizadorNavegacao.current !== null) {
-      window.clearTimeout(temporizadorNavegacao.current);
+    if (!secao) {
+      console.error(`Não foi encontrada a seção com id="${id}".`);
+      return;
     }
 
-    window.history.replaceState(null, "", href);
+    // Guarda o estado antes de fechar o menu.
+    const menuEstavaAberto = menuAberto;
 
-    const alturaCabecalho =
-      cabecalhoRef.current?.getBoundingClientRect().height ?? 112;
+    // Atualiza a seção ativa e fecha o menu.
+    setSecaoAtiva(`#${id}`);
+    setMenuAberto(false);
 
-    const posicao =
-      secao.getBoundingClientRect().top +
-      window.scrollY -
-      alturaCabecalho -
-      12;
+    // Atualiza a URL sem recarregar a página.
+    window.history.replaceState(null, "", `#${id}`);
 
-    window.scrollTo({
-      top: Math.max(
-        0,
-        Math.min(
-          posicao,
-          document.documentElement.scrollHeight - window.innerHeight
-        )
-      ),
-      behavior: scrollSuave,
-    });
+    // Aguarda o fechamento do menu antes de calcular a posição.
+    window.setTimeout(() => {
+      const secaoAtual = document.getElementById(id);
 
-    temporizadorNavegacao.current = window.setTimeout(
-      () => {
-        navegacaoEmAndamento.current = false;
+      if (!secaoAtual) return;
 
-        const alturaAtual =
-          cabecalhoRef.current?.getBoundingClientRect().height ?? 96;
+      const alturaCabecalho =
+        barraCabecalhoRef.current?.getBoundingClientRect().height ?? 96;
 
-        const secoesOrdenadas = navigation
-          .map((item) => ({
-            href: item.href,
-            elemento: document.querySelector<HTMLElement>(item.href),
-          }))
-          .filter(
-            (
-              item
-            ): item is {
-              href: string;
-              elemento: HTMLElement;
-            } => item.elemento !== null
-          );
+      const posicao =
+        secaoAtual.getBoundingClientRect().top +
+        window.scrollY -
+        alturaCabecalho -
+        16;
 
-        const secaoAtual = secoesOrdenadas
-          .filter(
-            (item) =>
-              item.elemento.getBoundingClientRect().top <=
-              alturaAtual + 100
-          )
-          .at(-1);
-
-        if (secaoAtual) {
-          setSecaoAtiva(secaoAtual.href);
-        }
-      },
-      prefereMovimentoReduzido ? 100 : 900
-    );
+      // Rola até a seção sem esconder seu título atrás do cabeçalho.
+      window.scrollTo({
+        top: Math.max(0, posicao),
+        behavior: prefereMovimentoReduzido ? "auto" : "smooth",
+      });
+    }, menuEstavaAberto ? 300 : 0);
   };
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#080d0f] text-white selection:bg-teal-300 selection:text-[#080d0f]">
       {/* Cabeçalho */}
       <motion.header
-        ref={cabecalhoRef}
         initial={false}
         animate={{
           backgroundColor: rolouPagina
@@ -230,6 +173,7 @@ function App() {
         className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.07] backdrop-blur-xl"
       >
         <div
+          ref={barraCabecalhoRef}
           className={`mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 transition-all duration-300 sm:gap-6 sm:px-8 ${
             rolouPagina ? "h-[96px]" : "h-[112px]"
           }`}
@@ -251,7 +195,7 @@ function App() {
             />
           </button>
 
-          {/* Navegação desktop */}
+          {/* Menu desktop */}
           <nav
             aria-label="Navegação principal"
             className="hidden items-center gap-3 lg:flex xl:gap-5"
@@ -268,7 +212,6 @@ function App() {
                 }`}
               >
                 {item.label}
-
                 <span
                   className={`absolute inset-x-0 -bottom-px h-0.5 origin-left rounded-full bg-gradient-to-r from-teal-300 to-cyan-400 transition-transform duration-300 ${
                     secaoAtiva === item.href
@@ -280,23 +223,17 @@ function App() {
             ))}
           </nav>
 
-          {/* Contato desktop */}
-          <div className="hidden xl:block">
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="group inline-flex items-center gap-2 rounded-full border border-teal-300/30 bg-teal-300/[0.08] px-4 py-3 text-sm font-semibold text-teal-200 transition-all duration-300 hover:border-teal-300/60 hover:bg-teal-300/[0.15]"
-            >
-              Fale conosco
-              <ArrowUpRight
-                size={16}
-                className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-              />
-            </a>
-          </div>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="hidden items-center gap-2 rounded-full border border-teal-300/30 bg-teal-300/[0.08] px-4 py-3 text-sm font-semibold text-teal-200 transition-all hover:border-teal-300/60 hover:bg-teal-300/[0.15] xl:inline-flex"
+          >
+            Fale conosco
+            <ArrowUpRight size={16} />
+          </a>
 
-          {/* Menu mobile */}
+          {/* Botão mobile */}
           <button
             type="button"
             onClick={() => setMenuAberto((aberto) => !aberto)}
@@ -305,22 +242,11 @@ function App() {
             aria-controls="menu-mobile"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white transition-colors hover:bg-white/[0.09] lg:hidden"
           >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={menuAberto ? "fechar" : "abrir"}
-                initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
-                animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
-                transition={{ duration: 0.15 }}
-                className="flex"
-              >
-                {menuAberto ? <X size={23} /> : <Menu size={23} />}
-              </motion.span>
-            </AnimatePresence>
+            {menuAberto ? <X size={23} /> : <Menu size={23} />}
           </button>
         </div>
 
-        {/* Menu mobile expandido */}
+        {/* Menu mobile */}
         <AnimatePresence initial={false}>
           {menuAberto && (
             <motion.nav
@@ -372,7 +298,7 @@ function App() {
         {/* Início */}
         <section
           id="inicio"
-          className="relative flex min-h-[760px] scroll-mt-0 items-center overflow-hidden pb-20 pt-36 sm:min-h-[800px] sm:pb-24 sm:pt-40"
+          className="relative flex min-h-[760px] scroll-mt-32 items-center overflow-hidden pb-20 pt-36 sm:min-h-[800px] sm:pb-24 sm:pt-40"
         >
           <div className="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-teal-400/[0.08] blur-[120px]" />
           <div className="pointer-events-none absolute -right-40 bottom-0 h-[500px] w-[500px] rounded-full bg-cyan-500/[0.08] blur-[140px]" />
@@ -408,13 +334,10 @@ function App() {
                 <button
                   type="button"
                   onClick={() => navegar("#treinamentos")}
-                  className="group inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400 px-7 py-4 text-sm font-bold text-[#071012] shadow-[0_8px_35px_rgba(45,212,191,0.13)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(45,212,191,0.23)]"
+                  className="group inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400 px-7 py-4 text-sm font-bold text-[#071012] transition-all duration-300 hover:-translate-y-1"
                 >
                   Conheça os treinamentos
-                  <ArrowRight
-                    size={18}
-                    className="transition-transform group-hover:translate-x-1"
-                  />
+                  <ArrowRight size={18} />
                 </button>
 
                 <button
@@ -435,18 +358,16 @@ function App() {
             <motion.div
               initial={{ opacity: 0, scale: 0.96, x: 20 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.12, ease: "easeOut" }}
+              transition={{ duration: 0.8, delay: 0.12 }}
               className="relative mx-auto w-full max-w-[570px] lg:max-w-none"
             >
               <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-teal-300/15 via-transparent to-cyan-500/10 blur-2xl" />
-
               <div className="relative overflow-hidden rounded-[1.7rem] border border-white/10 bg-[#101719] p-2 shadow-2xl shadow-black/30">
                 <img
                   src="/unique-hero.png"
-                  alt="Treinamento esportivo e preparação física na Unique"
+                  alt="Treinamento esportivo na Unique"
                   className="h-[360px] w-full rounded-[1.25rem] object-cover sm:h-[460px] lg:h-[510px]"
                 />
-
                 <div className="absolute inset-x-2 bottom-2 rounded-b-[1.25rem] bg-gradient-to-t from-[#071012]/95 via-[#071012]/65 to-transparent px-6 pb-6 pt-24 sm:px-8 sm:pb-8">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-200">
                     Performance em evolução
@@ -473,10 +394,9 @@ function App() {
         {/* Sobre */}
         <section
           id="sobre"
-          className="relative scroll-mt-0 border-t border-white/[0.06] py-24 sm:py-32"
+          className="relative scroll-mt-32 border-t border-white/[0.06] py-24 sm:py-32"
         >
           <div className="pointer-events-none absolute right-0 top-20 h-72 w-72 rounded-full bg-teal-300/[0.05] blur-[110px]" />
-
           <div className="relative mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-20">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -487,7 +407,6 @@ function App() {
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-300">
                 Sobre a Unique
               </p>
-
               <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl lg:text-5xl">
                 Mais do que treinar.
                 <span className="mt-2 block text-white/45">
@@ -508,7 +427,6 @@ function App() {
                 para o desenvolvimento físico e esportivo, valorizando a
                 disciplina, a dedicação e a busca constante por evolução.
               </p>
-
               <p className="text-base leading-8 text-white/60 sm:text-lg">
                 Cada etapa da preparação é uma oportunidade para desenvolver
                 capacidades, fortalecer a confiança e trabalhar em direção
@@ -518,19 +436,14 @@ function App() {
               <div className="grid gap-4 pt-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
                   <CheckCircle2 size={23} className="mb-4 text-teal-300" />
-                  <h3 className="font-semibold text-white">
-                    Desenvolvimento
-                  </h3>
+                  <h3 className="font-semibold text-white">Desenvolvimento</h3>
                   <p className="mt-2 text-sm leading-6 text-white/50">
                     Trabalho contínuo para aprimorar suas capacidades.
                   </p>
                 </div>
-
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
                   <ArrowUpRight size={23} className="mb-4 text-teal-300" />
-                  <h3 className="font-semibold text-white">
-                    Alta dedicação
-                  </h3>
+                  <h3 className="font-semibold text-white">Alta dedicação</h3>
                   <p className="mt-2 text-sm leading-6 text-white/50">
                     Compromisso com a evolução e os objetivos esportivos.
                   </p>
@@ -553,7 +466,10 @@ function App() {
         </section>
 
         {/* Treinamentos */}
-        <section id="treinamentos" className="scroll-mt-0 py-24 sm:py-32">
+        <section
+          id="treinamentos"
+          className="scroll-mt-32 py-24 sm:py-32"
+        >
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -566,12 +482,10 @@ function App() {
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-300">
                   O que desenvolvemos
                 </p>
-
                 <h2 className="mt-5 max-w-2xl text-3xl font-semibold tracking-[-0.035em] sm:text-4xl lg:text-5xl">
                   Preparação para o seu próximo nível.
                 </h2>
               </div>
-
               <p className="max-w-md text-sm leading-7 text-white/50 sm:text-base">
                 Conheça algumas das áreas de treinamento para desenvolver
                 capacidades físicas e melhorar seu desempenho.
@@ -585,29 +499,21 @@ function App() {
                   initial={{ opacity: 0, y: 25 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.15 }}
-                  transition={{
-                    duration: 0.55,
-                    delay: index * 0.1,
-                  }}
-                  className="group overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#0d1416] transition-all duration-300 hover:-translate-y-1 hover:border-teal-300/30 hover:shadow-[0_20px_60px_rgba(45,212,191,0.07)]"
+                  transition={{ duration: 0.55, delay: index * 0.1 }}
+                  className="group overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#0d1416] transition-all duration-300 hover:-translate-y-1 hover:border-teal-300/30"
                 >
                   <div className="relative h-64 overflow-hidden sm:h-72 lg:h-80">
                     <img
                       src={training.image}
                       alt={`Treinamento de ${training.title.toLowerCase()} na Unique`}
                       loading="lazy"
-                      style={{
-                        objectPosition: training.imagePosition,
-                      }}
+                      style={{ objectPosition: training.imagePosition }}
                       className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                     />
-
                     <div className="absolute inset-0 bg-gradient-to-t from-[#080d0f] via-[#080d0f]/10 to-transparent" />
-
                     <span className="absolute left-5 top-5 flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-[#080d0f]/60 text-xs font-semibold text-teal-200 backdrop-blur-md">
                       {training.number}
                     </span>
-
                     <div className="absolute inset-x-0 bottom-0 p-6 sm:p-7">
                       <h3 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                         {training.title}
@@ -619,17 +525,13 @@ function App() {
                     <p className="min-h-[84px] text-sm leading-7 text-white/55">
                       {training.description}
                     </p>
-
                     <button
                       type="button"
                       onClick={() => navegar("#contato")}
                       className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-teal-200 transition-colors hover:text-teal-100"
                     >
                       Saiba mais
-                      <ArrowRight
-                        size={16}
-                        className="transition-transform group-hover:translate-x-1"
-                      />
+                      <ArrowRight size={16} />
                     </button>
                   </div>
                 </motion.article>
@@ -641,7 +543,7 @@ function App() {
         {/* Localização */}
         <section
           id="localizacao"
-          className="scroll-mt-0 border-t border-white/[0.06] bg-[#0a1012] py-24 sm:py-32"
+          className="scroll-mt-32 border-t border-white/[0.06] bg-[#0a1012] py-24 sm:py-32"
         >
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <motion.div
@@ -654,11 +556,9 @@ function App() {
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-300">
                 Onde estamos
               </p>
-
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl lg:text-5xl">
                 Encontre a Unique.
               </h2>
-
               <p className="mt-5 max-w-2xl text-base leading-8 text-white/55">
                 Estamos em Paulínia, SP. Consulte o mapa e trace sua rota para
                 conhecer o espaço de treinamento.
@@ -677,11 +577,9 @@ function App() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-teal-300/15 bg-teal-300/[0.08] text-teal-200">
                     <MapPin size={23} />
                   </div>
-
                   <h3 className="mt-6 text-xl font-semibold">
                     Unique Treinamento Esportivo
                   </h3>
-
                   <p className="mt-4 text-sm leading-7 text-white/55">
                     Av. Dr. Heitor Nascimento, 809
                     <br />
@@ -706,11 +604,7 @@ function App() {
                   src="https://maps.google.com/maps?q=Av.%20Dr.%20Heitor%20Nascimento%2C%20809%2C%20Paulinia%2C%20SP&t=&z=16&ie=UTF8&iwloc=&output=embed"
                   width="100%"
                   height="100%"
-                  style={{
-                    border: 0,
-                    minHeight: "inherit",
-                    display: "block",
-                  }}
+                  style={{ border: 0, minHeight: "inherit", display: "block" }}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   allowFullScreen
@@ -723,7 +617,7 @@ function App() {
         {/* Contato */}
         <section
           id="contato"
-          className="relative scroll-mt-0 overflow-hidden py-24 sm:py-32"
+          className="relative scroll-mt-32 overflow-hidden py-24 sm:py-32"
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#080d0f] via-[#0b1718] to-[#080d0f]" />
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-300/[0.07] blur-[130px]" />
@@ -738,31 +632,25 @@ function App() {
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-teal-300">
               O próximo passo é seu
             </p>
-
             <h2 className="mx-auto mt-6 max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-5xl lg:text-6xl">
               Sua evolução começa com uma{" "}
               <span className="bg-gradient-to-r from-teal-200 to-cyan-400 bg-clip-text text-transparent">
                 decisão.
               </span>
             </h2>
-
             <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55 sm:text-lg">
               Entre em contato com a Unique para conhecer os treinamentos e
               descobrir como dar o próximo passo na sua preparação esportiva.
             </p>
-
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noreferrer"
-              className="group mt-9 inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400 px-7 py-4 text-sm font-bold text-[#071012] shadow-[0_8px_35px_rgba(45,212,191,0.13)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_45px_rgba(45,212,191,0.23)] sm:px-9 sm:text-base"
+              className="group mt-9 inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-teal-300 to-cyan-400 px-7 py-4 text-sm font-bold text-[#071012] transition-all duration-300 hover:-translate-y-1 sm:px-9 sm:text-base"
             >
               <MessageCircle size={19} />
               Fale com a Unique pelo WhatsApp
-              <ArrowUpRight
-                size={18}
-                className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-              />
+              <ArrowUpRight size={18} />
             </a>
           </motion.div>
         </section>
@@ -800,31 +688,27 @@ function App() {
           </a>
         </div>
 
-        {/* Crédito de desenvolvimento: Eleva Studio */}
         <div className="border-t border-white/[0.06]">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 px-5 py-6 sm:flex-row sm:gap-4 sm:px-8">
             <span className="text-xs tracking-wide text-white/40">
               Desenvolvido por
             </span>
-
             <a
               href="https://eleva-studio.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Conheça a Eleva Studio, responsável pelo desenvolvimento do site"
+              aria-label="Conheça a Eleva Studio"
               className="group inline-flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               <img
-                src="/logo-eleva.webp"
+                src="/logo-eleva.png"
                 alt="Logo da Eleva Studio"
                 loading="lazy"
                 className="h-8 w-auto max-w-[140px] object-contain"
               />
-
               <span className="text-sm font-semibold text-white/75 transition-colors group-hover:text-teal-200">
                 Eleva Studio
               </span>
-
               <ArrowUpRight
                 size={14}
                 className="text-teal-300/70 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
