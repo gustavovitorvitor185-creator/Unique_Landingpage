@@ -700,12 +700,13 @@ function App() {
               aria-label="Conheça a Eleva Studio"
               className="group inline-flex items-center gap-2 transition-opacity hover:opacity-80"
             >
-              <img
-                src="/logo-eleva.png"
-                alt="Logo da Eleva Studio"
-                loading="lazy"
-                className="h-8 w-auto max-w-[140px] object-contain"
-              />
+              
+                <img
+                  src="/logo-eleva.webp"
+                  alt="Logo da Eleva Studio"
+                  className="block h-8 w-auto max-w-[140px] shrink-0 object-contain"
+                />
+
               <span className="text-sm font-semibold text-white/75 transition-colors group-hover:text-teal-200">
                 Eleva Studio
               </span>
