@@ -778,7 +778,7 @@ function App() {
             className="transition-opacity hover:opacity-80"
           >
             <img
-              src="/unique-logo-completa.webp"
+              src="/unique-logo-completa.png"
               alt="Unique Treinamento Esportivo"
               className="h-10 w-auto object-contain"
             />
